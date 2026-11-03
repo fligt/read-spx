@@ -1,0 +1,214 @@
+---
+jupyter:
+  jupytext:
+    text_representation:
+      extension: .qmd
+      format_name: quarto
+      format_version: '1.0'
+      jupytext_version: 1.19.6
+  kernelspec:
+    display_name: Python 3 (ipykernel)
+    language: python
+    name: python3
+---
+
+This notebook contains the code that was created by Gauthier to parse spx files. Did not do any testing or development yet. 
+
+# Import statements
+
+```{python}
+import hyperspy.api as hs
+import rsciio
+from pathlib import Path
+from fairdatanow import DataViewer, login, filters
+```
+
+# Retrieve rawfiles
+
+```{python}
+# locally
+
+from project import Project
+from db import DB
+
+project_id = '2026-801'
+folder_projects = 'local'
+db_name = 'db_local'
+
+p = Project(project_id=project_id, folder_projects=folder_projects, db_name=db_name)
+
+objects = p.objects
+files_xrf = sorted([str(x) for x in p.get_measurement_files(techniques=['XRF'], data_category='raw',file_types='.spx')])
+```
+
+
+```{python}
+# with fairdatanow
+
+url = "https://laboppad.nl/ukiyo-e-world"
+dv = DataViewer(login(url), **filters(search='(?=.*XRF)', use_regex=True, extensions=['.spx']))
+
+files_xrf = dv.download_filtered()
+```
+
+
+# Parse data
+
+## RSCIIO
+
+```{python}
+# not working - error message
+
+rsciio.bruker.file_reader(files_xrf[0])
+```
+
+## HyperSpy
+
+```{python}
+# not working - error message
+
+hs.load(files_xrf[0])
+```
+
+## XML parsing
+
+```{python}
+import xml.etree.ElementTree as ET
+import numpy as np
+import pandas as pd
+
+file = files_xrf[0]
+
+# Load the XML file
+tree = ET.parse(file)
+root = tree.getroot()
+
+# Helper function to safely extract text from a tag
+def safe_find(tag_path, default="0"):
+    tag = root.find(tag_path)
+    if tag is not None and tag.text is not None:
+        return tag.text
+    return default
+
+# Extract metadata with corrected XPath queries
+metadata = {
+    "date": safe_find('.//ClassInstance[@Type="TRTSpectrumHeader"]/Date'),
+    "time": safe_find('.//ClassInstance[@Type="TRTSpectrumHeader"]/Time'),
+    "real_time": float(safe_find('.//ClassInstance[@Type="TRTSpectrumHardwareHeader"]/RealTime')),
+    "life_time": float(safe_find('.//ClassInstance[@Type="TRTSpectrumHardwareHeader"]/LifeTime')),
+    "dead_time": float(safe_find('.//ClassInstance[@Type="TRTSpectrumHardwareHeader"]/DeadTime')),
+    "high_voltage": float(safe_find('.//ClassInstance[@Type="TRTGeneratorHeader"]/HighVoltage')),
+    "tube_current": float(safe_find('.//ClassInstance[@Type="TRTGeneratorHeader"]/TubeCurrent')),
+    "anode": safe_find('.//ClassInstance[@Type="TRTRFAHeader"]/Anode'),
+    "max_energy": float(safe_find('.//ClassInstance[@Type="TRTRFAHeader"]/MaxEnergy')),
+    "x_position": float(root.find('.//ClassInstance[@Type="TRTAxesHeader"]/AxesParameter/Axis0').get('AxisPosition', '0')),
+    "y_position": float(root.find('.//ClassInstance[@Type="TRTAxesHeader"]/AxesParameter/Axis1').get('AxisPosition', '0')),
+    "z_position": float(root.find('.//ClassInstance[@Type="TRTAxesHeader"]/AxesParameter/Axis2').get('AxisPosition', '0')),
+    "calib_abs": float(safe_find('.//ClassInstance[@Type="TRTSpectrumHeader"]/CalibAbs')),
+    "calib_lin": float(safe_find('.//ClassInstance[@Type="TRTSpectrumHeader"]/CalibLin')),
+}
+
+# Extract the spectrum (4096 channels)
+channels_tag = root.find('.//Channels')
+if channels_tag is not None and channels_tag.text is not None:
+    spectrum = [int(count) for count in channels_tag.text.split(',')]
+else:
+    raise ValueError("No <Channels> tag found or it is empty.")
+
+# Calculate energy values for each channel
+channels = np.arange(len(spectrum))
+energies = metadata['calib_abs'] + channels * metadata['calib_lin']
+
+# Create a DataFrame for the spectrum
+spectrum_df = pd.DataFrame({
+    'Channel': channels,
+    'Energy_keV': energies,
+    'Counts': spectrum
+})
+
+# Create a dataframe for the metadata ; REARRANGE IT AND INFO OVER OBJECT, PROJECT, ETC...
+metadata_df = pd.DataFrame([metadata]).T
+metadata_df.columns = ['value']
+metadata_df.index.name = 'parameter'
+
+
+# Save the metadata and data to an excel file
+folder_output = '.'  # should ideally be the interim folder for XRF data
+
+project_id = Path(file).stem.split('_')[0]
+object_id = Path(file).stem.split('_')[1]
+meas_nb = Path(file).stem.split('_')[2]
+spot_description = Path(file).stem.split('_')[3]
+date = f'{metadata['date'].split('.')[2]}-{(metadata['date'].split('.')[1]).zfill(2)}-{(metadata['date'].split('.')[0]).zfill(2)}'
+
+filename_output = f'{project_id}_XRF.{object_id}.{meas_nb}_{spot_description}_{date}_Artax'
+
+with pd.ExcelWriter(Path(folder_output) / f'{filename_output}.xlsx') as writer:
+
+    metadata_df.to_excel(writer, sheet_name='info', index=True)
+    spectrum_df.to_excel(writer, sheet_name="spectrum", index=False)   
+
+
+# Print a summary
+print(f"Energy range: {energies[0]:.3f} keV to {energies[-1]:.3f} keV")
+print(f"Total counts: {sum(spectrum)}")
+```
+
+
+
+```{python}
+import xml.etree.ElementTree as ET
+
+# Load the XML file
+tree = ET.parse(files_xrf[0])
+root = tree.getroot()
+
+# Extract metadata (example: axes positions)
+for axes in root.findall('.//AxesParameter/Axis0'):
+    print(f"X Position: {axes.get('AxisPosition')} {axes.get('AxisUnit')}")
+
+# Extract hardware settings
+for hardware in root.findall('.//TRTSpectrumHardwareHeader'):
+    real_time = hardware.find('RealTime').text
+    dead_time = hardware.find('DeadTime').text
+    
+    print(f"Real Time: {real_time}, Dead Time: {dead_time}")
+```
+
+# Energies calculation
+
+The calculation for the energy values in your XRF spectrum is based on a linear calibration model that converts channel numbers (from the detector) to energy values (in keV). This is a standard approach in spectroscopy, where the detector's channels are mapped to energy values using a linear relationship.
+
+**Why this Formula?**
+
+In XRF (X-Ray Fluorescence) and other spectroscopic techniques, detectors (like the Bruker XFlash) divide the energy range into discrete channels (e.g., 4096 channels). Each channel corresponds to a small range of energies. To convert channel numbers to actual energy values, a calibration is performed using known reference peaks (e.g., from standard samples).
+The calibration is typically modeled as a linear function:
+
+Energy (keV) = CalibAbs + (Channel Number) * CalibLin
+
+* CalibAbs: The intercept (energy offset in keV). This accounts for any systematic shift in the detector's response (e.g., due to electronics or zero-point energy).
+
+* CalibLin: The slope (energy per channel in keV/channel). This represents the energy dispersion of the detector (how much energy each channel represents).
+
+
+**How does it work for our data?**
+
+CalibAbs = -0.974 keV
+
+This is the energy offset. At channel 0, the energy is -0.974 keV (which is non-physical but mathematically valid for calibration).
+
+CalibLin = 0.010015 keV/channel
+
+Each channel represents an energy step of 0.010015 keV.
+
+The first channel (0) starts at -0.974 keV (due to the offset).
+The last channel (4095) ends at 40.037 keV, matching the MaxEnergy in your metadata.
+
+**Why is CalibAbs Negative?**
+
+The negative offset (-0.974 keV) is not physical but is a mathematical artifact of the calibration process.
+It ensures that the linear fit aligns perfectly with the known energy peaks used for calibration.
+The actual energy range of interest is from 0 keV to ~40 keV, which is covered by channels ~100 to 4095.
+
+
+
