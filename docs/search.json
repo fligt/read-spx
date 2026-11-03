@@ -1,0 +1,32 @@
+[
+  {
+    "objectID": "02_a-second-qmd-based-notebook.html",
+    "href": "02_a-second-qmd-based-notebook.html",
+    "title": "This is a second documentation page",
+    "section": "",
+    "text": "print('hoi')\n\nhoi",
+    "crumbs": [
+      "This is a second documentation page"
+    ]
+  },
+  {
+    "objectID": "00_index.html",
+    "href": "00_index.html",
+    "title": "Getting started",
+    "section": "",
+    "text": "Welcome to read-spx\nWithin our lab we need to deal with X-Ray Fluorescence spectral data files produced by an Bruker Artax instrument. These files contain XML code that we need to parse.\nThis tiny Python package is developed to read these files into tabular data for easy subsequent data processing and plotting.",
+    "crumbs": [
+      "Getting started"
+    ]
+  },
+  {
+    "objectID": "01_taking-a-look-at-our-first-spx-file.html",
+    "href": "01_taking-a-look-at-our-first-spx-file.html",
+    "title": "Taking a look at our first spx file",
+    "section": "",
+    "text": "To be continued…\n\nfrom read_spx import say_hello \n\nsay_hello(\"Frank and Koen\")\n\nHello Frank and Koen\n\n\nDo we still have our line above with ‘Hi there’?",
+    "crumbs": [
+      "Taking a look at our first spx file"
+    ]
+  }
+]

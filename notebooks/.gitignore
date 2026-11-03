@@ -1,0 +1,4 @@
+# should ignore all classic notebooks
+*.ipynb
+
+/.quarto/

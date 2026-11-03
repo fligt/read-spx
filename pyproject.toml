@@ -1,0 +1,49 @@
+[project]
+name = "read-spx"
+version = "0.1.0"
+description = "Parse Artax X-Ray Fluorescence (.spx) spectral data files."
+readme = "README.md"
+license = "MIT" 
+license-files = ["LICENSE"]
+authors = [
+    { name = "Frank and Koen" }
+]
+requires-python = ">=3.14"
+dependencies = []
+
+#[project.scripts]
+#fix-uv-jupytext = "fix_uv_jupytext:main"
+
+[build-system]
+requires = ["uv_build>=0.12.2,<0.14"]
+build-backend = "uv_build"
+
+# these new jupytext settings below should improve 
+# the compatibility between vscode (koen) and jupterlab (frank)
+# uncommented two lines directly below 
+# need to test if this now works  
+# toml parsing breaks, so commenting out again
+# instead now providing separate folders in ".nbs/" for pairing 
+
+#[tool.jupytext]
+#formats = "ipynb,qmd" 
+
+[[tool.jupytext.formats]]
+"notebooks/" = "qmd"
+"_nbs/_docs/" = "ipynb"
+
+[[tool.jupytext.formats]]
+"src/read_spx/" = "py:percent"
+"_nbs/_src/" = "ipynb"
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.4.0",
+    "jupyter>=1.1.1",
+    "jupyterlab-quarto>=0.3.5",
+    "jupytext>=1.19.6",
+    "nbclient>=0.11.0",
+    "pip>=26.3",
+]
+
+
