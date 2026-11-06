@@ -9,7 +9,9 @@ authors = [
     { name = "Frank and Koen" }
 ]
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "openpyxl>=3.1.5",
+]
 
 #[project.scripts]
 #fix-uv-jupytext = "fix_uv_jupytext:main"
@@ -38,6 +40,7 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "fairdatanow>=0.3.0",
     "ipykernel>=7.4.0",
     "jupyter>=1.1.1",
     "jupyterlab-quarto>=0.3.5",

@@ -1,4 +1,5 @@
 ---
+title: Gauthiers code
 jupyter:
   jupytext:
     text_representation:
@@ -12,15 +13,11 @@ jupyter:
     name: python3
 ---
 
-This notebook contains the code that was created by Gauthier to parse spx files. Did not do any testing or development yet. 
-
-# Import statements
-
 ```{python}
 import hyperspy.api as hs
 import rsciio
 from pathlib import Path
-from fairdatanow import DataViewer, login, filters
+from fairdatanow import DataViewer, login, filters 
 ```
 
 # Retrieve rawfiles
@@ -41,7 +38,6 @@ objects = p.objects
 files_xrf = sorted([str(x) for x in p.get_measurement_files(techniques=['XRF'], data_category='raw',file_types='.spx')])
 ```
 
-
 ```{python}
 # with fairdatanow
 
@@ -50,7 +46,6 @@ dv = DataViewer(login(url), **filters(search='(?=.*XRF)', use_regex=True, extens
 
 files_xrf = dv.download_filtered()
 ```
-
 
 # Parse data
 
@@ -154,8 +149,6 @@ print(f"Energy range: {energies[0]:.3f} keV to {energies[-1]:.3f} keV")
 print(f"Total counts: {sum(spectrum)}")
 ```
 
-
-
 ```{python}
 import xml.etree.ElementTree as ET
 
@@ -209,6 +202,3 @@ The last channel (4095) ends at 40.037 keV, matching the MaxEnergy in your metad
 The negative offset (-0.974 keV) is not physical but is a mathematical artifact of the calibration process.
 It ensures that the linear fit aligns perfectly with the known energy peaks used for calibration.
 The actual energy range of interest is from 0 keV to ~40 keV, which is covered by channels ~100 to 4095.
-
-
-
