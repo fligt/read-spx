@@ -13,6 +13,10 @@ jupyter:
     name: python3
 ---
 
+The Bruker Artax instrument in our lab produces X-Ray Fluorescence spectral data in little text encoded .spx files. Somewhere inside is the spectral data that we need. Let's dive into the XML code below to see what is inside. 
+
+Although there is a lot of metadata available, for most purposes we only need the large block with integers that represents the spectral intensity values for all detetector channels, and the two floating point values that allow us to compute the linear energy calibration for all energy channels. 
+
 ```{python}
 from read_spx import demo_spx
 print(demo_spx)
@@ -20,7 +24,7 @@ print(demo_spx)
 
 ## Plotting a spectrum 
 
-First let's load some spx files into my cache folder. 
+Let's take a look at a bunch of some spx files that I have downloaded into my cache folder. 
 
 ```{python}
 from fairdatanow import DataViewer, login, filters 
@@ -34,8 +38,6 @@ spx_files = dv.download_filtered()
 spx_files
 ```
 
-Although we can see above that there is a lot of metadata available, for most purposes we only need the large block with integers that represents the spectral intensity values for all detetector channels, and the two floating point values that allow us to compute the linear energy calibration for all energy channels. 
-
 The spectral data that is hidden in the XML codes can simply be extrated using the `get_spectrum()` function. 
 
 ```{python}
@@ -45,7 +47,7 @@ df = get_spectrum(spx_files[5])
 df
 ```
 
-Using a few lines of standard matplotlib code we can create a plot.  
+Using a few lines of standard matplotlib code we can now create a plot.  
 
 ```{python}
 fig, ax = plt.subplots()
