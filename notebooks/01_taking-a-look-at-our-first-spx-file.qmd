@@ -13,168 +13,43 @@ jupyter:
     name: python3
 ---
 
-## Data now 
-
-To get started let's download a bunch of `.spx` spectral data files that we measured for one of the japanese prints in our ukiyo-e-world project. 
-
 ```{python}
-from fairdatanow import DataViewer, login, filters
-import panel as pn 
-pn.extension()
+from read_spx import demo_spx
+print(demo_spx)
 ```
 
-```{python}
-url = 'https://laboppad.nl/ukiyo-e-world'
-```
+## Plotting a spectrum 
+
+First let's load some spx files into my cache folder. 
 
 ```{python}
+from fairdatanow import DataViewer, login, filters 
+import matplotlib.pyplot as plt 
+import pandas as pd 
+
+url = 'https://laboppad.nl/ukiyo-e-world' 
 dv = DataViewer(login(url), **filters(search='RV-1-4468-544', extensions=['.spx']))
+spx_files = dv.download_filtered()                                
+
+spx_files
 ```
+
+Although we can see above that there is a lot of metadata available, for most purposes we only need the large block with integers that represents the spectral intensity values for all detetector channels, and the two floating point values that allow us to compute the linear energy calibration for all energy channels. 
+
+The spectral data that is hidden in the XML codes can simply be extrated using the `get_spectrum()` function. 
 
 ```{python}
-dv
+from read_spx import get_spectrum
+
+df = get_spectrum(spx_files[5])
+df
 ```
+
+Using a few lines of standard matplotlib code we can create a plot.  
 
 ```{python}
-spx_files = dv.download_filtered()
+fig, ax = plt.subplots()
+ax.plot(df['energies'], df['intensities'])
+ax.set_xlabel('Energy [keV]') 
+ax.set_ylabel('Intensity [counts]');
 ```
-
-```{python}
-with open(spx_files[5]) as fh: 
-
-    spx_text = fh.read()
-```
-
-```{python}
-#print(spx_text)
-```
-
-```{python}
-import xml.etree.ElementTree as ET
-import numpy as np
-import pandas as pd
-from pathlib import Path
-```
-
-```{python}
-file = spx_files[5]
-```
-
-```{python}
-spx = SPX_reader(spx_files[5])
-```
-
-```{python}
-def safe_find(tag_path, default="0"):
-    '''Helper function to safely extract text from a tag'''
-    
-    tag = root.find(tag_path)
-    if tag is not None and tag.text is not None:
-        return tag.text
-    return default
-
-class SPX_reader(): 
-
-    def __init__(self, spx_file): 
-
-        # Load the XML file
-        self.tree = ET.parse(spx_file)
-        self.root = tree.getroot() 
-
-        # Extract metadata with corrected XPath queries
-        self.metadata = {
-            "date": safe_find('.//ClassInstance[@Type="TRTSpectrumHeader"]/Date'),
-            "time": safe_find('.//ClassInstance[@Type="TRTSpectrumHeader"]/Time'),
-            "real_time": float(safe_find('.//ClassInstance[@Type="TRTSpectrumHardwareHeader"]/RealTime')),
-            "life_time": float(safe_find('.//ClassInstance[@Type="TRTSpectrumHardwareHeader"]/LifeTime')),
-            "dead_time": float(safe_find('.//ClassInstance[@Type="TRTSpectrumHardwareHeader"]/DeadTime')),
-            "high_voltage": float(safe_find('.//ClassInstance[@Type="TRTGeneratorHeader"]/HighVoltage')),
-            "tube_current": float(safe_find('.//ClassInstance[@Type="TRTGeneratorHeader"]/TubeCurrent')),
-            "anode": safe_find('.//ClassInstance[@Type="TRTRFAHeader"]/Anode'),
-            "max_energy": float(safe_find('.//ClassInstance[@Type="TRTRFAHeader"]/MaxEnergy')),
-            "x_position": float(root.find('.//ClassInstance[@Type="TRTAxesHeader"]/AxesParameter/Axis0').get('AxisPosition', '0')),
-            "y_position": float(root.find('.//ClassInstance[@Type="TRTAxesHeader"]/AxesParameter/Axis1').get('AxisPosition', '0')),
-            "z_position": float(root.find('.//ClassInstance[@Type="TRTAxesHeader"]/AxesParameter/Axis2').get('AxisPosition', '0')),
-            "calib_abs": float(safe_find('.//ClassInstance[@Type="TRTSpectrumHeader"]/CalibAbs')),
-            "calib_lin": float(safe_find('.//ClassInstance[@Type="TRTSpectrumHeader"]/CalibLin')),
-        }
-
-        # Extract the spectrum (4096 channels)
-        channels_tag = self.root.find('.//Channels')
-        if channels_tag is not None and channels_tag.text is not None:
-            self.spectrum = [int(count) for count in channels_tag.text.split(',')]
-        else:
-            raise ValueError("No <Channels> tag found or it is empty.") 
-
-        # Calculate energy values for each channel
-        self.channels = np.arange(len(self.spectrum))
-        self.energies = self.metadata['calib_abs'] + self.channels * self.metadata['calib_lin']
-```
-
-```{python}
-
-
-# Extract metadata with corrected XPath queries
-metadata = {
-    "date": safe_find('.//ClassInstance[@Type="TRTSpectrumHeader"]/Date'),
-    "time": safe_find('.//ClassInstance[@Type="TRTSpectrumHeader"]/Time'),
-    "real_time": float(safe_find('.//ClassInstance[@Type="TRTSpectrumHardwareHeader"]/RealTime')),
-    "life_time": float(safe_find('.//ClassInstance[@Type="TRTSpectrumHardwareHeader"]/LifeTime')),
-    "dead_time": float(safe_find('.//ClassInstance[@Type="TRTSpectrumHardwareHeader"]/DeadTime')),
-    "high_voltage": float(safe_find('.//ClassInstance[@Type="TRTGeneratorHeader"]/HighVoltage')),
-    "tube_current": float(safe_find('.//ClassInstance[@Type="TRTGeneratorHeader"]/TubeCurrent')),
-    "anode": safe_find('.//ClassInstance[@Type="TRTRFAHeader"]/Anode'),
-    "max_energy": float(safe_find('.//ClassInstance[@Type="TRTRFAHeader"]/MaxEnergy')),
-    "x_position": float(root.find('.//ClassInstance[@Type="TRTAxesHeader"]/AxesParameter/Axis0').get('AxisPosition', '0')),
-    "y_position": float(root.find('.//ClassInstance[@Type="TRTAxesHeader"]/AxesParameter/Axis1').get('AxisPosition', '0')),
-    "z_position": float(root.find('.//ClassInstance[@Type="TRTAxesHeader"]/AxesParameter/Axis2').get('AxisPosition', '0')),
-    "calib_abs": float(safe_find('.//ClassInstance[@Type="TRTSpectrumHeader"]/CalibAbs')),
-    "calib_lin": float(safe_find('.//ClassInstance[@Type="TRTSpectrumHeader"]/CalibLin')),
-}
-
-# Extract the spectrum (4096 channels)
-channels_tag = root.find('.//Channels')
-if channels_tag is not None and channels_tag.text is not None:
-    spectrum = [int(count) for count in channels_tag.text.split(',')]
-else:
-    raise ValueError("No <Channels> tag found or it is empty.")
-
-# Calculate energy values for each channel
-channels = np.arange(len(spectrum))
-energies = metadata['calib_abs'] + channels * metadata['calib_lin']
-
-# Create a DataFrame for the spectrum
-spectrum_df = pd.DataFrame({
-    'Channel': channels,
-    'Energy_keV': energies,
-    'Counts': spectrum
-})
-
-# Create a dataframe for the metadata ; REARRANGE IT AND INFO OVER OBJECT, PROJECT, ETC...
-metadata_df = pd.DataFrame([metadata]).T
-metadata_df.columns = ['value']
-metadata_df.index.name = 'parameter'
-
-
-# Save the metadata and data to an excel file
-folder_output = '.'  # should ideally be the interim folder for XRF data
-
-project_id = Path(file).stem.split('_')[0]
-object_id = Path(file).stem.split('_')[1]
-meas_nb = Path(file).stem.split('_')[2]
-spot_description = Path(file).stem.split('_')[3]
-date = f'{metadata['date'].split('.')[2]}-{(metadata['date'].split('.')[1]).zfill(2)}-{(metadata['date'].split('.')[0]).zfill(2)}'
-
-filename_output = f'{project_id}_XRF.{object_id}.{meas_nb}_{spot_description}_{date}_Artax'
-
-with pd.ExcelWriter(Path(folder_output) / f'{filename_output}.xlsx') as writer:
-
-    metadata_df.to_excel(writer, sheet_name='info', index=True)
-    spectrum_df.to_excel(writer, sheet_name="spectrum", index=False)   
-
-
-# Print a summary
-print(f"Energy range: {energies[0]:.3f} keV to {energies[-1]:.3f} keV")
-print(f"Total counts: {sum(spectrum)}")
-```
-
